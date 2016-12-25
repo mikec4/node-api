@@ -2,11 +2,14 @@
 const expect=require('expect');
 const request=require('supertest');
 const {ObjectID}=require('mongodb');
+const _=require('lodash');
+
 
 
 var {app}=require('./../server');
 var {Post}=require('./../models/post');
-var {posts,populatePosts}=require('./seed');
+var {User}=require('./../models/user');
+var {posts,populatePosts,users,populateUsers}=require('./seed');
 
 
 
@@ -17,6 +20,11 @@ before((done)=>{
     
     });
 });
+before((done)=>{
+    User.remove({}).then(()=>{
+    populateUsers(done);
+    });
+})
 
 describe('POST /posts',()=>{
 
@@ -29,6 +37,7 @@ describe('POST /posts',()=>{
 
         request(app)
         .post('/posts')
+        .set('x-auth',users[0].tokens[0].token)
         .send({text})
         .expect(200)
         .expect((res)=>{
@@ -50,6 +59,7 @@ describe('POST /posts',()=>{
         var name="hello";
         request(app)
         .post('/posts')
+        .set('x-auth',users[0].tokens[0].token)
         .send({name})
         .expect(404)
         .end(done);
@@ -63,6 +73,7 @@ describe('GET /posts',()=>{
 
         request(app)
         .get('/posts')
+        .set('x-auth',users[0].tokens[0].token)
         .expect(200)
         .end((e,res)=>{
             if(e)return done(e);
@@ -85,6 +96,7 @@ describe('GET /posts/:id',()=>{
          
         request(app)
         .get(`/posts/${id}`)
+        .set('x-auth',users[0].tokens[0].token)
         .expect(200)
         .expect((res)=>{
             expect(res.body._id).toBe(id);
@@ -97,6 +109,7 @@ describe('GET /posts/:id',()=>{
       var id=123;
         request(app)
         .get(`/posts/${id}`)
+        .set('x-auth',users[0].tokens[0].token)
         .expect(404)
         .end(done);
     })
@@ -111,6 +124,7 @@ describe('PATCH /posts',()=>{
       
       request(app)
       .patch(`/posts/${id}`)
+       .set('x-auth',users[0].tokens[0].token)
       .send({text})
       .expect(200)
       .expect((res)=>{
@@ -125,6 +139,7 @@ describe('PATCH /posts',()=>{
       var text='Maandazi';
       request(app)
       .patch(`/posts/${id}`)
+      .set('x-auth',users[0].tokens[0].token)
       .send({text})
       .expect(400)
       .expect((res)=>{
@@ -140,6 +155,7 @@ describe('PATCH /posts',()=>{
 
       request(app)
       .patch(`/posts/${id}`)
+       .set('x-auth',users[0].tokens[0].token)
       .send({text})
       .expect(404)
       .end(done);
@@ -153,6 +169,7 @@ describe('DELETE /posts/id',()=>{
 
         request(app)
         .delete(`/posts/${id}`)
+        .set('x-auth',users[0].tokens[0].token)
         .expect(200)
         .end((e,res)=>{
             if(e)return done(e);
@@ -169,6 +186,7 @@ describe('DELETE /posts/id',()=>{
        var id=123;
         request(app)
         .delete(`/posts/${id}`)
+        .set('x-auth',users[0].tokens[0].token)
         .expect(404)
         .end(done);
     });
@@ -177,6 +195,7 @@ describe('DELETE /posts/id',()=>{
 
              request(app)
              .delete(`/posts/${id}`)
+             .set('x-auth',users[0].tokens[0].token)
              .expect(400)
              .end(done);
     });
@@ -188,6 +207,7 @@ describe('DELETE /posts',()=>{
 
         request(app)
         .delete('/posts')
+        .set('x-auth',users[0].tokens[0].token)
         .expect(200)
         .end((e,res)=>{
             if(e)return done(e);
@@ -200,3 +220,137 @@ describe('DELETE /posts',()=>{
     })
 });
 
+describe('POST /users',()=>{
+    it('should create a user',(done)=>{
+      var email="a@example.com";
+      var password="1234567";
+
+     request(app)
+     .post('/users')
+     .send({
+         email,password
+     })
+     .expect(200)
+     .expect((res)=>{
+         expect(res.body.user.email).toBe(email);
+     })
+     .end((e)=>{
+         if(e)return done(e);
+
+         User.find({}).then((users)=>{
+             expect(users.length).toBeGreaterThan(2);
+             done();
+         }).catch((e)=>done(e));
+     });
+          
+    })
+    it('should return 400 if email is already taken',(done)=>{
+        var email=users[0].email;
+         var password=users[0].password;
+
+       request(app)
+       .post('/users') 
+       .send({
+        email,
+        password
+       })
+       .expect(400)
+       .end(done);
+    })
+})
+
+describe('GET /users',()=>{
+    it('should get all users',(done)=>{
+
+        request(app)
+        .get('/users')
+        .expect(200)
+        .expect((res)=>{
+           expect(res.body.users.length).toBeGreaterThan(2);
+
+        })
+        .end(done);
+
+    })
+})
+describe('GET /users/id',()=>{
+    var id=users[0]._id.toHexString();
+    var email=users[0].email;
+
+    it('should get user by id',(done)=>{
+
+        request(app)
+        .get(`/users/${id}`)
+        .expect(200)
+        .expect((res)=>{
+            expect(res.body.email).toBe(email);
+        })
+        .end(done);
+    });
+    it('should return 404 for invalid id',(done)=>{
+        var id=123;
+
+        request(app)
+        .get(`/users/${id}`)
+        .expect(404)
+        .end(done);
+    });
+
+    it('should return 400 for an unvailable id',(done)=>{
+       var id=new ObjectID();
+
+        request(app)
+        .get(`/users/${id}`)
+        .expect(400)
+        .end(done);
+
+    })
+})
+
+describe('POST /users/login',()=>{
+    it('should login a user',(done)=>{
+        var email=users[0].email;
+        var password=users[0].password;
+
+        request(app)
+        .post('/users/login')
+        .send({email,password})
+        .expect(200)
+        .end(done);
+    });
+    it('should return 400 for the invalid email',(done)=>{
+
+        var email="mim@x.com";
+        var password="1234567";
+
+        request(app)
+        .post('/users/login')
+        .send({email,password})
+        .expect(400)
+        .end(done);
+    })
+
+    it('should return 400 for the invalid password',(done)=>{
+
+        var email=users[0].email;
+        var password="abcdefghij";
+
+        request(app)
+        .post('/users/login')
+        .send({email,password})
+        .expect(400)
+        .end(done);
+    })
+})
+
+describe('DELETE /users/logout',()=>{
+
+    it('should remove a token',(done)=>{
+
+        request(app)
+        .delete('/users/logout')
+        .set('x-auth',users[0].tokens[0].token)
+        .expect(200)
+        .end(done);
+    })
+})

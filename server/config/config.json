@@ -1,10 +1,13 @@
 {
     "test":{
         "PORT":5000,
-        "MONGODB_URI":"mongodb://localhost:27017/PostAppTest"
+        "MONGODB_URI":"mongodb://localhost:27017/PostAppTest",
+        "JWT_SECRET":"MICHAELNTIRINIGA"
     },
     "development":{
         "PORT":5000,
-        "MONGODB_URI":"mongodb://localhost:27017/Post"
+        "MONGODB_URI":"mongodb://localhost:27017/PostApp",
+        "JWT_SECRET":"CLARANTIRINIGA"
+
     }
 }

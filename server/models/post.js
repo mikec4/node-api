@@ -5,6 +5,9 @@ var postSchema=mongoose.Schema({
     text:{
         type:String,
         required:true
+    },
+    _userId:{
+        type:mongoose.Schema.Types.ObjectId
     }
 });
 
